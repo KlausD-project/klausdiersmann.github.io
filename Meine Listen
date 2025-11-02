@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Meine Listen — To-Do & Einkauf</title>
+  <meta name="theme-color" content="#d8b9ff">
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    :root{
+      --bg: #f4f4f4;
+      --text: #222;
+      --card: #fff;
+      --accent-from: #d8b9ff;
+      --accent-to: #6b2fa5;
+      --purple-btn: #7a3db8;
+      --purple-btn-hover: #9052d1;
+    }
+    [data-theme="dark"]{
+      --bg: #141214;
+      --text: #efeef8;
+      --card: #1f1626;
+      --accent-from: #b993ff;
+      --accent-to: #4a1f78;
+      --purple-btn: #9c5be5;
+      --purple-btn-hover: #b47cff;
+    }
+    body{
+      margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial;
+      background:var(--bg); color:var(--text); font-size:18px;
+    }
+    header{
+      display:grid; grid-template-columns: 220px 1fr 90px; align-items:center;
+      padding:16px 20px; color:#fff;
+      background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+    }
+    #datetime{ font-size:0.9em; line-height:1.25; opacity:0.95; }
+    header h1{ text-align:center; margin:0 0 0 -20px; font-size:1.5em; white-space:nowrap; }
+    #themeToggle{ background:none; border:none; color:white; font-size:1.4em; cursor:pointer; }
+
+    nav{ display:flex; justify-content:center; background: linear-gradient(90deg, var(--accent-to), #4a1f78); }
+    nav button{ background:none; border:none; color:white; padding:14px 22px; font-size:1.05em; cursor:pointer; }
+    nav button.active, nav button:hover{ background: rgba(255,255,255,0.08); }
+
+    .container{ max-width:720px; margin:30px auto; background:var(--card); padding:22px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    h2{ text-align:center; margin-top:0; font-size:1.25em; }
+
+    .action-buttons{ display:flex; justify-content:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+    .action-buttons button{ background:var(--purple-btn); color:white; border:none; padding:10px 16px; border-radius:10px; font-size:1em; cursor:pointer; }
+    .action-buttons button:hover{ background:var(--purple-btn-hover); }
+
+    .input-group{ display:flex; gap:8px; margin-bottom:18px; }
+    .input-group input{ flex:1; padding:12px; border-radius:10px 0 0 10px; border:1px solid #d0c4e8; font-size:1.05em; }
+    .input-group button{ background:linear-gradient(180deg,var(--accent-to),var(--accent-from)); color:white; border:none; padding:12px 16px; border-radius:0 10px 10px 0; font-size:1.15em; cursor:pointer; }
+
+    ul{ list-style:none; padding:0; margin:0; font-size:1.05em; }
+    li{ display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px; background:#f0ecfa; border-radius:10px; margin-bottom:10px; }
+    [data-theme="dark"] li{ background:#2b193a; }
+
+    li .left{ display:flex; align-items:center; gap:12px; min-width:0; }
+    .text{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .meta{ font-size:0.85em; color:#6b5b7a; display:block; }
+
+    li.completed{ background:#e6f6ea; color:gray; text-decoration:line-through; }
+    li button.delete{ background:#b33; color:white; border:none; padding:8px 10px; border-radius:8px; cursor:pointer; }
+
+    @media (max-width:480px){
+      header{ grid-template-columns: 180px 1fr 60px; padding:12px; }
+      header h1{ font-size:1.2em; margin-left:-10px; }
+      .container{ margin:16px; padding:16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="datetime"><div id="date">--</div><div id="time">--:--</div></div>
+    <h1>Meine Listen</h1>
+    <button id="themeToggle" aria-label="Theme umschalten">🌗</button>
+  </header>
+
+  <nav><button id="todoBtn" class="active">📝 To-Do Liste</button><button id="shopBtn">🛒 Einkaufsliste</button></nav>
+
+  <main class="container">
+    <section id="todoSection">
+      <h2>To-Do Liste</h2>
+      <div class="action-buttons">
+        <button id="todoClearBtn">🗑️ Alles löschen</button>
+        <button id="todoExportBtn">📤 Exportieren</button>
+        <button id="todoPrintBtn">🖨️ Drucken</button>
+      </div>
+      <div class="input-group">
+        <input id="todoInput" placeholder="Neue Aufgabe hinzufügen..." />
+        <button id="todoAddBtn">➕</button>
+      </div>
+      <ul id="todoList"></ul>
+    </section>
+
+    <section id="shopSection" style="display:none;">
+      <h2>Einkaufsliste</h2>
+      <div class="action-buttons">
+        <button id="shopClearBtn">🗑️ Alles löschen</button>
+        <button id="shopExportBtn">📤 Exportieren</button>
+        <button id="shopPrintBtn">🖨️ Drucken</button>
+      </div>
+      <div class="input-group">
+        <input id="shopInput" placeholder="Neuen Artikel hinzufügen..." />
+        <button id="shopAddBtn">➕</button>
+      </div>
+      <ul id="shopList"></ul>
+    </section>
+  </main>
+
+  <script>
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); }
+
+    const STORAGE = { todo: 'todoItems_v_lila', shop: 'shopItems_v_lila' };
+    const todoBtn = document.getElementById('todoBtn'), shopBtn = document.getElementById('shopBtn');
+    const todoSection = document.getElementById('todoSection'), shopSection = document.getElementById('shopSection');
+
+    todoBtn.addEventListener('click', ()=> switchList('todo'));
+    shopBtn.addEventListener('click', ()=> switchList('shop'));
+    function switchList(t){ if(t==='todo'){ todoSection.style.display='block'; shopSection.style.display='none'; todoBtn.classList.add('active'); shopBtn.classList.remove('active'); } else { todoSection.style.display='none'; shopSection.style.display='block'; shopBtn.classList.add('active'); todoBtn.classList.remove('active'); } }
+
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', ()=> {
+      const cur = document.documentElement.getAttribute('data-theme');
+      if(cur==='dark') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme','dark');
+      localStorage.setItem('theme', document.documentElement.getAttribute('data-theme')||'light');
+    });
+    if(localStorage.getItem('theme')==='dark') document.documentElement.setAttribute('data-theme','dark');
+
+    function loadItems(k){ try{ return JSON.parse(localStorage.getItem(STORAGE[k])||'[]'); }catch(e){return [];} }
+    function saveItems(k,arr){ localStorage.setItem(STORAGE[k], JSON.stringify(arr)); }
+
+    function addItem(type){ const input=document.getElementById(type+'Input'); if(!input) return; const text=input.value.trim(); if(!text) return; const items=loadItems(type); items.push({text,done:false,date:new Date().toISOString()}); saveItems(type,items); input.value=''; renderList(type); }
+    function toggleDone(type,i){ const items=loadItems(type); items[i].done=!items[i].done; saveItems(type,items); renderList(type); }
+    function deleteItem(type,i){ if(!confirm('Wirklich löschen?')) return; const items=loadItems(type); items.splice(i,1); saveItems(type,items); renderList(type); }
+    function clearAll(type){ if(!confirm('Wirklich alle löschen?')) return; saveItems(type,[]); renderList(type); }
+    function exportJSON(type){ const data=JSON.stringify(loadItems(type),null,2); const blob=new Blob([data],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=type+'-liste.json'; a.click(); URL.revokeObjectURL(a.href); }
+    function printList(type){ const items=loadItems(type); const content=items.map(i=> (i.done?'✔️ ':'☐ ')+i.text).join('\n'); const w=window.open('','_blank'); w.document.write('<pre>'+content+'</pre>'); w.print(); w.close(); }
+
+    document.getElementById('todoAddBtn').addEventListener('click', ()=> addItem('todo'));
+    document.getElementById('shopAddBtn').addEventListener('click', ()=> addItem('shop'));
+    ['todoInput','shopInput'].forEach(id=>{ const el=document.getElementById(id); el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addItem(id.includes('todo')?'todo':'shop'); } }); });
+
+    function renderList(type){ const list=document.getElementById(type+'List'); list.innerHTML=''; const items=loadItems(type); items.forEach((item,i)=>{ const li=document.createElement('li'); if(item.done) li.classList.add('completed'); const left=document.createElement('div'); left.className='left'; const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!item.done; cb.addEventListener('change', ()=> toggleDone(type,i)); const span=document.createElement('span'); span.className='text'; span.textContent=item.text; const meta=document.createElement('span'); meta.className='meta'; meta.textContent=new Date(item.date).toLocaleString(); const del=document.createElement('button'); del.className='delete'; del.textContent='✖'; del.addEventListener('click', ()=> deleteItem(type,i)); left.append(cb, span, meta); li.append(left, del); list.appendChild(li); }); }
+
+    document.getElementById('todoClearBtn').addEventListener('click', ()=> clearAll('todo'));
+    document.getElementById('shopClearBtn').addEventListener('click', ()=> clearAll('shop'));
+    document.getElementById('todoExportBtn').addEventListener('click', ()=> exportJSON('todo'));
+    document.getElementById('shopExportBtn').addEventListener('click', ()=> exportJSON('shop'));
+    document.getElementById('todoPrintBtn').addEventListener('click', ()=> printList('todo'));
+    document.getElementById('shopPrintBtn').addEventListener('click', ()=> printList('shop'));
+
+    function updateDateTime(){ const now=new Date(); document.getElementById('date').textContent = now.toLocaleDateString('de-DE',{ day:'2-digit', month:'long', year:'numeric' }); document.getElementById('time').textContent = now.toLocaleTimeString('de-DE',{ hour:'2-digit', minute:'2-digit' }); }
+    updateDateTime(); setInterval(updateDateTime,1000);
+
+    window.addEventListener('DOMContentLoaded', ()=>{ renderList('todo'); renderList('shop'); });
+  </script>
+</body>
+</html>
